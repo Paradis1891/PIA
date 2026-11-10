@@ -12,6 +12,7 @@ jobs:
   build:
     name: Build Android APK
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -43,16 +44,23 @@ jobs:
           python3 - <<'PY'
           p = 'app/build.gradle.kts'
           s = open(p, encoding='utf-8').read()
+
           old = '    buildFeatures { compose = true; buildConfig = true }'
+
           new = '''    compileOptions {
-            sourceCompatibility = JavaVersion.VERSION_17
-            targetCompatibility = JavaVersion.VERSION_17
-        }
-        kotlinOptions { jvmTarget = "17" }
-        buildFeatures { compose = true; buildConfig = true }'''
+              sourceCompatibility = JavaVersion.VERSION_17
+              targetCompatibility = JavaVersion.VERSION_17
+          }
+          kotlinOptions { jvmTarget = "17" }
+          buildFeatures { compose = true; buildConfig = true }'''
+
           if old not in s:
-              raise SystemExit('Could not find expected buildFeatures line in app/build.gradle.kts')
-          open(p, 'w', encoding='utf-8').write(s.replace(old, new))
+              raise SystemExit(
+                  'Could not find expected buildFeatures line in app/build.gradle.kts'
+              )
+
+          with open(p, 'w', encoding='utf-8') as f:
+              f.write(s.replace(old, new))
           PY
 
       - name: Set up Gradle
