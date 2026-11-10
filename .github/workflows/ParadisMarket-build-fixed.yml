@@ -1,0 +1,72 @@
+name: Build Paradis Market (fixed)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: latest
+          packages: platform-tools
+          accept-android-sdk-licenses: true
+
+      - name: Install Android platform and build tools
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Extract app source
+        run: unzip -o ParadisMarket-Android-Source.zip
+
+      - name: Align Java and Kotlin JVM targets
+        working-directory: ParadisMarket
+        run: |
+          python3 - <<'PY'
+          p = 'app/build.gradle.kts'
+          s = open(p, encoding='utf-8').read()
+          old = '    buildFeatures { compose = true; buildConfig = true }'
+          new = '''    compileOptions {
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
+        }
+        kotlinOptions { jvmTarget = "17" }
+        buildFeatures { compose = true; buildConfig = true }'''
+          if old not in s:
+              raise SystemExit('Could not find expected buildFeatures line in app/build.gradle.kts')
+          open(p, 'w', encoding='utf-8').write(s.replace(old, new))
+          PY
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        working-directory: ParadisMarket
+        run: gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ParadisMarket-debug-APK
+          path: ParadisMarket/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
